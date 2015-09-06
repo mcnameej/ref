@@ -1,6 +1,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 #include <errno.h>
 
 #include "node.h"
@@ -472,6 +473,33 @@ NAN_METHOD(ReadCString) {
 }
 
 /*
+ * Reads a ucs2 Wide C String from the given pointer at the given offset (or 0).
+ *
+ * args[0] - Buffer - the "buf" Buffer instance to read from
+ * args[1] - Number - the offset from the "buf" buffer's address to read from
+ */
+
+NAN_METHOD(ReadWString) {
+
+  Local<Value> buf = info[0];
+  if (!Buffer::HasInstance(buf)) {
+    return Nan::ThrowTypeError("readWString: Buffer instance expected");
+  }
+
+  int64_t offset = GetInt64(info[1]);
+  uint16_t *ptr = (uint16_t *)(Buffer::Data(buf.As<Object>()) + offset);
+  // NOTE: v8::String has constructor for uint16_t but not wchar_t,
+  // so we'll use uint16_t.
+
+  if (ptr == NULL) {
+    return Nan::ThrowError("readWString: Cannot read from NULL pointer");
+  }
+
+  Local<Value> rtn = Nan::New<v8::String>(ptr).ToLocalChecked();
+  info.GetReturnValue().Set(rtn);
+}
+
+/*
  * Returns a new Buffer instance that has the same memory address
  * as the given buffer, but with the specified size.
  *
@@ -570,6 +598,7 @@ NAN_MODULE_INIT(init) {
   SET_SIZEOF(byte, unsigned char);
   SET_SIZEOF(char, char);
   SET_SIZEOF(uchar, unsigned char);
+  SET_SIZEOF(wchar_t, wchar_t);
   SET_SIZEOF(short, short);
   SET_SIZEOF(ushort, unsigned short);
   SET_SIZEOF(int, int);
@@ -580,8 +609,10 @@ NAN_MODULE_INIT(init) {
   SET_SIZEOF(ulonglong, unsigned long long);
   SET_SIZEOF(pointer, char *);
   SET_SIZEOF(size_t, size_t);
+  SET_SIZEOF(HANDLE, HANDLE);
+  SET_SIZEOF(BOOL, BOOL);
   // size of a Persistent handle to a JS object
-	SET_SIZEOF(Object, Nan::Persistent<Object>);
+  SET_SIZEOF(Object, Nan::Persistent<Object>);
 
   // "alignof" map
   Local<Object> amap = Nan::New<v8::Object>();
@@ -601,6 +632,7 @@ NAN_MODULE_INIT(init) {
   SET_ALIGNOF(bool, bool);
   SET_ALIGNOF(char, char);
   SET_ALIGNOF(uchar, unsigned char);
+  SET_ALIGNOF(wchar_t, wchar_t);
   SET_ALIGNOF(short, short);
   SET_ALIGNOF(ushort, unsigned short);
   SET_ALIGNOF(int, int);
@@ -611,7 +643,11 @@ NAN_MODULE_INIT(init) {
   SET_ALIGNOF(ulonglong, unsigned long long);
   SET_ALIGNOF(pointer, char *);
   SET_ALIGNOF(size_t, size_t);
-	SET_ALIGNOF(Object, Nan::Persistent<Object>);
+#ifdef _WIN32
+  SET_ALIGNOF(HANDLE, HANDLE);
+  SET_ALIGNOF(BOOL, BOOL);
+#endif
+  SET_ALIGNOF(Object, Nan::Persistent<Object>);
 
   // exports
   target->Set(Nan::New<v8::String>("sizeof").ToLocalChecked(), smap);
@@ -630,6 +666,7 @@ NAN_MODULE_INIT(init) {
   Nan::SetMethod(target, "readUInt64", ReadUInt64);
   Nan::SetMethod(target, "writeUInt64", WriteUInt64);
   Nan::SetMethod(target, "readCString", ReadCString);
+  Nan::SetMethod(target, "readWString", ReadWString);
   Nan::SetMethod(target, "reinterpret", ReinterpretBuffer);
   Nan::SetMethod(target, "reinterpretUntilZeros", ReinterpretBufferUntilZeros);
 }

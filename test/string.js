@@ -85,3 +85,87 @@ describe('C string', function () {
   })
 
 })
+
+describe('Wide C string', function () {
+
+  describe('readWString()', function () {
+
+    it('should return "" for a Buffer containing L"\\0"', function () {
+      var buf = new Buffer('\0', 'ucs2')
+      assert.strictEqual('', buf.readWString(0))
+    })
+
+    it('should return "hello" for a Buffer containing L"hello\\0world"', function () {
+      var buf = new Buffer('hello\0world', 'ucs2')
+      assert.strictEqual('hello', buf.readWString(0))
+    })
+
+    it('should throw an Error when reading from the NULL pointer', function () {
+      assert.throws(function () {
+        ref.NULL.readWString()
+      })
+    })
+
+  })
+
+  describe('writeWString()', function () {
+
+    it('should write a Wide C string (NUL terminated) to a Buffer', function () {
+      var buf = new Buffer(30)
+      var str = 'hello world'
+      buf.writeWString(str)
+      for (var i = 0; i < str.length; i++) {
+        assert.equal(str.charCodeAt(i), buf.readUInt16LE(i*2))
+      }
+      assert.equal(0, buf[str.length])
+    })
+
+  })
+
+  describe('allocWString()', function () {
+
+    it('should return a new Buffer containing the given string', function () {
+      var buf = ref.allocWString('hello world')
+      assert.strictEqual('hello world', buf.readWString())
+    })
+
+    it('should return the NULL pointer for `null` values', function () {
+      var buf = ref.allocWString(null)
+      assert(buf.isNull())
+      assert.strictEqual(0, buf.address())
+    })
+
+    it('should return the NULL pointer for `undefined` values', function () {
+      var buf = ref.allocWString(undefined)
+      assert(buf.isNull())
+      assert.strictEqual(0, buf.address())
+    })
+
+    it('should return the NULL pointer for a NULL pointer Buffer', function () {
+      var buf = ref.allocWString(ref.NULL)
+      assert(buf.isNull())
+      assert.strictEqual(0, buf.address())
+    })
+
+  })
+
+  describe('WString', function () {
+
+    it('should return JS `null` when given a pointer pointing to NULL', function () {
+      var buf = ref.alloc(ref.types.WString)
+      buf.writePointer(ref.NULL)
+      assert.strictEqual(null, buf.deref())
+
+      assert.strictEqual(null, ref.get(ref.NULL_POINTER, 0, ref.types.WString))
+    })
+
+    it('should read a ucs2 string from a Buffer', function () {
+      var str = 'hello world'
+      var buf = ref.alloc(ref.types.WString)
+      buf.writePointer(Buffer(str + '\0', 'ucs2'))
+      assert.strictEqual(str, buf.deref())
+    })
+
+  })
+
+})
